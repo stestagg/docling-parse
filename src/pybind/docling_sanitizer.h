@@ -232,6 +232,8 @@ namespace docling
 
 	  item["widget"] = cell.widget;
 	  item["left_to_right"] = cell.left_to_right;
+        item["id"] = cell.ids.id;
+        item["member_ids"] = cell.ids.get_member_ids();
 	}
 
 	result.push_back(item);

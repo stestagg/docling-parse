@@ -3,6 +3,8 @@
 #ifndef PDF_PAGE_CELL_RESOURCE_H
 #define PDF_PAGE_CELL_RESOURCE_H
 
+#include "../utils/resourceid.h"
+
 namespace pdflib
 {
 
@@ -14,6 +16,7 @@ namespace pdflib
     pdf_resource();
     ~pdf_resource();
 
+    resource_id_set ids;
     nlohmann::json get();
     bool init_from(nlohmann::json& data);
 
@@ -133,8 +136,9 @@ namespace pdflib
     //"instr-count",
 
     "widget",
-    "left_to_right"
-  };
+    "left_to_right",
+    "id",
+    "member_ids"};
 
   void pdf_resource<PAGE_CELL>::rotate(int angle, std::pair<double, double> delta)
   {
@@ -187,6 +191,8 @@ namespace pdflib
 
       cell.push_back(widget); // 19
       cell.push_back(left_to_right); // 20
+      cell.push_back(ids.id);        // 21
+      cell.push_back(ids.get_member_ids()); // 22
     }
     assert(cell.size()==header.size());
 
@@ -197,7 +203,7 @@ namespace pdflib
   {
     //LOG_S(INFO) << __FUNCTION__ << "data: " << data.size();
 
-    if(data.is_array() and data.size()>19)
+    if (data.is_array() and data.size() > 21)
       {
         x0 = data.at(0).get<double>();
         y0 = data.at(1).get<double>();
@@ -226,6 +232,8 @@ namespace pdflib
 
 	widget = data.at(19).get<bool>();
 	left_to_right = data.at(20).get<bool>();
+      ids.id = data.at(21).get<uint64_t>();
+      ids.add(data.at(22).get<std::set<uint64_t> >());
 
         return true;
       }
@@ -333,6 +341,8 @@ namespace pdflib
     y1 = std::max(y1, r_y1);
     y1 = std::max(y1, r_y2);
     y1 = std::max(y1, r_y3);        
+
+    ids = ids.merge(other.ids);
 
     return true;
   }

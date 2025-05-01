@@ -1,5 +1,6 @@
 """Parser for PDF files"""
 
+from collections import defaultdict
 import hashlib
 from io import BytesIO
 from pathlib import Path
@@ -255,6 +256,8 @@ class PdfDocument:
                 font_key=row[header.index(f"font-key")],
                 font_name=row[header.index(f"font-name")],
                 widget=row[header.index(f"widget")],
+                id=row[header.index(f"id")],
+                member_ids=row[header.index(f"member_ids")],
                 text_direction=(
                     TextDirection.LEFT_TO_RIGHT
                     if row[header.index(f"left_to_right")]
@@ -332,7 +335,30 @@ class PdfDocument:
 
         if create_textlines:
             self._create_textline_cells(segmented_page)
+
+            if create_words:
+                self._register_word_cells(segmented_page)
         return segmented_page
+
+    def _register_word_cells(self, segmented_page: SegmentedPdfPage):
+        # textline_cells have a set of member_ids, these are (usually) char cells 
+        # word_cells have been constructed from the same char_cells
+        # so we can use set intersections to add the word_cells to the textline_cells
+
+        words_by_char_id = defaultdict(list)
+        for word_cell in segmented_page.word_cells:
+            for member_id in word_cell.member_ids:
+                words_by_char_id[member_id].append(word_cell)
+
+        for textline_cell in segmented_page.textline_cells:
+            # get the word cells that are part of this textline cell
+            new_member_ids = set(textline_cell.member_ids)
+            for member_id in textline_cell.member_ids:
+                word_cells = words_by_char_id.get(member_id, [])
+                for word_cell in word_cells:
+                    new_member_ids.add(word_cell.id)
+                    new_member_ids.update(word_cell.member_ids)
+            textline_cell.member_ids = new_member_ids
 
     def _create_word_cells(
         self, segmented_page: SegmentedPdfPage, _loglevel: str = "fatal"
@@ -377,7 +403,6 @@ class PdfDocument:
             item_dict["left_to_right"] = (
                 item.text_direction == TextDirection.LEFT_TO_RIGHT
             )
-            item_dict["id"] = item.index
 
             char_data.append(item_dict)
 
